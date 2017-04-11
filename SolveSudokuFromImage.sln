@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26228.4
+VisualStudioVersion = 15.0.26403.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SudokuFromImage", "SudokuFromImage\SudokuFromImage.fsproj", "{0D980BDB-61D4-4EF3-9540-A9EF63AB4A42}"
 EndProject
