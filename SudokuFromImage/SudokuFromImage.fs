@@ -17,13 +17,17 @@ module SudokuFromImage =
         m.CopyTo<int>(arrayOfInt)
         arrayOfInt |> Array.splitInto m.Cols 
 
-    let private getParentsWithChilds  (hierarchy : int [][]) : (int * int) [] =
-        hierarchy |> Array.mapi (fun i indices -> 
-                        let p = indices.[3]
-                        if p <> -1 then p, i else -1, -1) 
-                  |> Array.filter ((<>) (-1, -1))
+    let private getParents (hierarchy : int [][]) : int List =
+        hierarchy |> Array.map (fun indices -> indices.[3]) |> Array.filter ((<>) -1) |> Array.toList
 
-           
+    let private getParentsWithChilds  (hierarchy : int [][]) (parents : int List) : HashMap<int, int []> =
+        let pXc = hierarchy |> Array.mapi (fun i indices -> 
+                                               let p = indices.[3]
+                                               if p <> -1 then p, i else -1, -1) 
+                            |> Array.filter ((<>) (-1, -1))
+        HashMap [for parent in parents -> parent, pXc |> Array.filter (fun pc -> match pc with | p, _ -> p = parent)
+                                                      |> Array.map (fun pc -> match pc with | _, c -> c)]
+          
     let sudokuFromImage (path : string)  : SudokuResult =
         try
             let image = CvInvoke.Imread(path, ImreadModes.ReducedGrayscale4)
@@ -47,16 +51,18 @@ module SudokuFromImage =
             
             // CvInvoke.DrawContours(image, contours, -1, MCvScalar(0.0, 0.0, 0.0), 2)
 
-            // Find the biggest contour with 81 holes
+            // Find the biggest contour with 81 holes 
             let hData = MatToArrayOfArrayOfInt hierarchie
-            let parentsChilds = getParentsWithChilds hData
-            let parents = parentsChilds |> Array.map (fun pc -> match pc with | p, _ -> p) |> Array.distinct
-            let parents81Childs = [for p in parents do if (parentsChilds |> Array.filter (fun pc -> match pc with | p2, _ -> p2 = p) |> Array.length) = 81 then yield p]
+            let parents = getParents hData
+            let parentsChilds = getParentsWithChilds hData parents
+           
+            let parents81Childs = [for parent in parents do if parentsChilds.[parent].Length >= 81 then yield parent]
   
-            
             let ca = contours.ToArrayOfArray()
-            let sud = Array.sub ca parents81Childs.Head 1 
-            CvInvoke.DrawContours(image, new VectorOfVectorOfPoint(sud), -1, MCvScalar(0.0, 0.0, 0.0), 2)
+            let sud = [ca.[parents81Childs.Head]] |> List.toArray
+            let carres = [for child in parentsChilds.[parents81Childs.Head] -> ca.[child]] |> List.toArray
+
+            CvInvoke.DrawContours(image, new VectorOfVectorOfPoint(carres), -1, MCvScalar(0.0, 0.0, 0.0), 2)
             
             #if  DEBUG
             let temp = IO.Path.GetTempPath()
