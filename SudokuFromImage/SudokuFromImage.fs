@@ -28,9 +28,9 @@ module SudokuFromImage =
         HashMap [for parent in parents -> parent, pXc |> Array.filter (fun pc -> match pc with | p, _ -> p = parent)
                                                       |> Array.map (fun pc -> match pc with | _, c -> c)]
 
-    let private max (a: float32 []) : int = a |> Array.findIndex ((=) (a |> Array.max))
-    
-    let private min (a: float32 []) : int = a |> Array.findIndex ((=) (a |> Array.min)) 
+    let private min (a: 'T []) : int = a |> Array.foldi (fun iMin i v -> if v < a.[iMin] then i else iMin) 0
+
+    let private max (a: 'T []) : int = a |> Array.foldi (fun iMax i v -> if v > a.[iMax] then i else iMax) 0
 
     let private clockWisePoints (pts : PointF []) : VectorOfPointF =
         // top left, top right, bottom right, bottom left
@@ -63,7 +63,6 @@ module SudokuFromImage =
             #endif
             
             let contours = new VectorOfVectorOfPoint()
-
             let hierarchy = new Mat()
             CvInvoke.FindContours(imDilate.Clone(), contours, hierarchy, RetrType.Ccomp, ChainApproxMethod.ChainApproxSimple)
             
@@ -95,10 +94,7 @@ module SudokuFromImage =
                                                           new PointF(float32 len, 0.0f); 
                                                           new PointF(float32 len, float32 len); 
                                                           new PointF(0.0f, float32 len) |])
-                    let srcPoints = [| new PointF(float32 corners.[0].X, float32 corners.[0].Y); 
-                                       new PointF(float32 corners.[1].X, float32 corners.[1].Y); 
-                                       new PointF(float32 corners.[2].X, float32 corners.[2].Y); 
-                                       new PointF(float32 corners.[3].X, float32 corners.[3].Y) |] |> clockWisePoints
+                    let srcPoints = [| for corner in corners.ToArray() -> new PointF(float32 corner.X, float32 corner.Y) |] |> clockWisePoints
                     let m = CvInvoke.GetPerspectiveTransform(srcPoints, dstPoints)
                     let imTrans = new Mat(len, len, DepthType.Cv8U, 1)
                     CvInvoke.WarpPerspective(image, imTrans, m, new Size(len, len))
@@ -108,7 +104,6 @@ module SudokuFromImage =
                     #endif
                    
                     Grid ""
-        
         with
             | :?ArgumentException as ex -> Error ex.Message
             |_ -> reraise ()
