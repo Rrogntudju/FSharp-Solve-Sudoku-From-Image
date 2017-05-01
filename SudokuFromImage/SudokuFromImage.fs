@@ -22,9 +22,9 @@ module SudokuFromImage =
         hierarchy |> Array.map (fun indices -> indices.[3]) |> Array.filter ((<>) -1) |> Array.toList
 
     let private getParentsWithChilds  (hierarchy : int [][]) (parents : int List) : HashMap<int, int []> =
-        let pXc = hierarchy |> Array.mapi (fun i indices -> 
+        let pXc = hierarchy |> Array.mapi (fun c indices -> 
                                                let p = indices.[3]
-                                               if p <> -1 then p, i else -1, -1) 
+                                               if p <> -1 then p, c else -1, -1) 
                             |> Array.filter ((<>) (-1, -1))
         HashMap [for parent in parents -> parent, pXc |> Array.filter (fun pc -> match pc with | p, _ -> p = parent)
                                                       |> Array.map (fun pc -> match pc with | _, c -> c)]
@@ -38,6 +38,9 @@ module SudokuFromImage =
         let sum = pts |> Array.map (fun p -> p.X + p.Y)
         let diff = pts |> Array.map (fun p -> p.X - p.Y)
         new VectorOfPointF([| pts.[min sum]; pts.[max diff]; pts.[max sum]; pts.[min diff] |])
+
+    let private dist (p1 : Point) (p2 : Point) : float =
+            Math.Sqrt(Math.Pow(float p1.X - float p2.X, 2.0) + Math.Pow(float p1.Y - float p2.Y, 2.0))
     
     let sudokuFromImage (path : string)  : SudokuResult =
         try
@@ -96,7 +99,7 @@ module SudokuFromImage =
                     CvInvoke.Imwrite(temp + "imCorners.jpg", imCorners) |> ignore
                     #endif
 
-                    // Correct the perspective
+                    // Flatten the perspective
                     let rect = CvInvoke.BoundingRectangle(parents81Corners.[parent81])
                     let gridLen = Math.Max(rect.Height, rect.Width)     // grid side length
                     // The order of points is clockwise : top left, top right, bottom right, bottom left
@@ -107,48 +110,77 @@ module SudokuFromImage =
                     use srcPoints = [| for corner in corners.ToArray() -> new PointF(float32 corner.X, float32 corner.Y) |] |> clockWisePoints
                     use m = CvInvoke.GetPerspectiveTransform(srcPoints, dstPoints)
                     use imTrans = new UMat(gridLen, gridLen, DepthType.Cv8U, 1)
-                    CvInvoke.WarpPerspective(image, imTrans, m, new Size(gridLen, gridLen))
+                    CvInvoke.WarpPerspective(image, imTrans, m, new Size(gridLen, gridLen))   
                     
                     #if  DEBUG
                     CvInvoke.Imwrite(temp + "imTrans.jpg", imTrans) |> ignore
                     #endif
-
-                    use imCanny2 = new UMat()
-                    CvInvoke.Canny(imTrans, imCanny2, 50.0, 150.0)
+                    
+                    use imThresh = new UMat()
+                    CvInvoke.AdaptiveThreshold(imTrans, imThresh, 255.0, AdaptiveThresholdType.MeanC, ThresholdType.Binary, 11, 10.0)   // magic! magic!
 
                     #if  DEBUG
-                    CvInvoke.Imwrite(temp + "imCanny2.jpg", imCanny2) |> ignore
+                    CvInvoke.Imwrite(temp + "imThresh.jpg", imThresh) |> ignore
                     #endif
             
-                    let sideLen = float imCanny2.Size.Height / 9.0   // approximative length of square side 
-                    let sideMid  = sideLen / 2.0    
-                    //let sideMidSmall  = sideMid * 0.9     // to extract the digit without most of the grid lines 
-                    
-                    let squares = [for y in sideMid .. sideLen .. sideLen * 9.0 do 
-                                        for x in sideMid .. sideLen .. sideLen * 9.0 -> 
-                                            let square = new UMat(imCanny2, new Rectangle(new Point(int (x - sideMid), int (y - sideMid)), 
-                                                                                           new Size(int sideLen, int sideLen))) 
-                                            use contours = new VectorOfVectorOfPoint()
-                                            CvInvoke.FindContours(square.Clone(), contours, null, RetrType.List, ChainApproxMethod.ChainApproxSimple)
-                                            if contours.Size = 0 then
-                                                None
-                                            else
-                                                let contoursA = contours.ToArrayOfArray()
-                                                let digitContour = contoursA |> Array.maxBy (fun c -> c.Length)
-                                                let digitRect = CvInvoke.BoundingRectangle(new VectorOfPoint(digitContour))
-                                                Some (new UMat(square, digitRect))]
+                    let gridLen = float imThresh.Size.Height
+                    let squareLen = float gridLen / 9.0   // approximative length of square side 
+                    let squareArea = Math.Pow(squareLen, 2.0)
+                    let squareCenter = new Point(int (squareLen / 2.0), int (squareLen / 2.0))
+                    let squareSize = new Size(int squareLen, int squareLen)
 
+                    let squares = [for y in 0.0 .. squareLen .. gridLen - squareLen do 
+                                        for x in 0.0 .. squareLen .. gridLen - squareLen -> 
+                                            new UMat(imThresh, new Rectangle(new Point(int x, int y), squareSize))]
+                    
                     #if  DEBUG
-                    squares |> Seq.iteri ( fun i s -> 
-                                                match s with
+                    squares |> List.iteri ( fun i square -> 
+                                                let fn = temp + sprintf "ImSquares%02i.jpg" i
+                                                CvInvoke.Imwrite(fn, square) |> ignore)
+                    #endif
+
+                    let digits = squares 
+                                 |> List.map (fun square ->
+                                                use contours = new VectorOfVectorOfPoint()
+                                                CvInvoke.FindContours(square.Clone(), contours, null, RetrType.List, ChainApproxMethod.ChainApproxSimple)
+                                                if contours.Size = 0 then
+                                                    None
+                                                else
+                                                    let rects = [for contour in contours.ToArrayOfArray() ->  CvInvoke.BoundingRectangle(new VectorOfPoint(contour))]
+                                                    let digits = rects 
+                                                                 |> List.map (fun rect -> 
+                                                                                // The area of the digit bounding rectangle should be a «fraction» of the area of the square
+                                                                                let digitRatio = (float rect.Height * float rect.Width) / squareArea
+                                                                                if digitRatio > 0.70 || digitRatio < 0.15 then  
+                                                                                    None
+                                                                                else
+                                                                                    // The center of the digit bounding rectangle should be «near» the center of the square
+                                                                                    let rectCenter = new Point(rect.X + (rect.Width / 2), rect.Y + (rect.Height / 2))
+                                                                                    if (dist rectCenter squareCenter) / squareLen > 0.2 then
+                                                                                        None
+                                                                                    else
+                                                                                        Some (new UMat(square, rect)))
+
+                                                    if digits |> List.forall (fun d -> Option.isNone d) = true then
+                                                        None
+                                                    else
+                                                        digits |> List.maxBy (fun d -> 
+                                                                                match d with
+                                                                                | None -> 0
+                                                                                | Some m -> m.Size.Height * m.Size.Width))
+                                                
+                    #if  DEBUG
+                    digits |> List.iteri ( fun i digit -> 
+                                                let fn = temp + sprintf "ImDigits%02i.jpg" i
+                                                IO.File.Delete(fn)
+                                                match digit with
                                                 | None -> ()
-                                                | Some m -> let fn = sprintf "ImDigits%02i.jpg" i
-                                                            CvInvoke.Imwrite(temp + fn, m) |> ignore)
+                                                | Some m -> CvInvoke.Imwrite(fn, m) |> ignore)                                                   
                     #endif
                    
                     use ocr = new Tesseract("", "eng", OcrEngineMode.TesseractOnly, "123456789")
-                    let grid = [for square in squares ->
-                                    match square with
+                    let grid = [for digit in digits ->
+                                    match digit with
                                     | None -> "."
                                     | Some m -> 
                                         ocr.Recognize(m)
