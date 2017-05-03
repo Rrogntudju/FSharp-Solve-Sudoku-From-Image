@@ -66,6 +66,7 @@ module SudokuFromImage =
             #endif
             
             use contours = new VectorOfVectorOfPoint()
+            // Emgu wants a Mat instead of a VectorOfVectorOfInt for the hierarchy...
             use hierarchy = new Mat()
             CvInvoke.FindContours(imDilate.Clone(), contours, hierarchy, RetrType.Ccomp, ChainApproxMethod.ChainApproxSimple)
              
@@ -149,25 +150,32 @@ module SudokuFromImage =
                                                     let rects = [for contour in contours.ToArrayOfArray() ->  CvInvoke.BoundingRectangle(new VectorOfPoint(contour))]
                                                     let digits = rects 
                                                                  |> List.map (fun rect -> 
-                                                                                // The area of the digit bounding rectangle should be a «fraction» of the area of the square
+                                                                                // The area of the digit bounding rectangle should be «smaller» than the area of the square
                                                                                 let digitRatio = (float rect.Height * float rect.Width) / squareArea
-                                                                                if digitRatio > 0.70 || digitRatio < 0.15 then  
+                                                                                if digitRatio > 0.70 || digitRatio < 0.1 then  
                                                                                     None
                                                                                 else
                                                                                     // The center of the digit bounding rectangle should be «near» the center of the square
                                                                                     let rectCenter = new Point(rect.X + (rect.Width / 2), rect.Y + (rect.Height / 2))
-                                                                                    if (dist rectCenter squareCenter) / squareLen > 0.2 then
+                                                                                    if (dist rectCenter squareCenter) / squareLen > 0.25 then
                                                                                         None
                                                                                     else
-                                                                                        Some (new UMat(square, rect)))
+                                                                                        // The digit image should not be «too empty» 
+                                                                                        let digit = new UMat(square, rect)
+                                                                                        let whitePixels = new VectorOfPoint()
+                                                                                        CvInvoke.FindNonZero(digit, whitePixels)
+                                                                                        if float whitePixels.Size / float (digit.Size.Height * digit.Size.Width) > 0.75 then
+                                                                                            digit.Dispose()
+                                                                                            None
+                                                                                        else
+                                                                                            Some digit
+                                                                                )
 
-                                                    if digits |> List.forall (fun d -> Option.isNone d) = true then
+                                                    if digits |> List.forall (Option.isNone) = true then
                                                         None
                                                     else
-                                                        digits |> List.maxBy (fun d -> 
-                                                                                match d with
-                                                                                | None -> 0
-                                                                                | Some m -> m.Size.Height * m.Size.Width))
+                                                        digits |> List.find (Option.isSome)
+                                                )
                                                 
                     #if  DEBUG
                     digits |> List.iteri ( fun i digit -> 
@@ -189,8 +197,11 @@ module SudokuFromImage =
                                         | ch when ch.Length = 0 -> "."
                                         | ch when ch.[0].Text = " " -> "."
                                         | ch -> ch.[0].Text]
-
-                    Grid (String.concat "" grid)
+                    
+                    if (digits |> List.filter (Option.isSome)).Length <> (grid |> List.filter ((<>) ".")).Length then
+                        Error (sprintf "Tesseract n'a pas pu lire au moins un des nombres\n%s" (String.concat "" grid))
+                    else
+                        Grid (String.concat "" grid)
         with
         | :?ArgumentException as ex -> Error ex.Message
         | _ -> reraise ()
