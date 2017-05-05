@@ -10,14 +10,16 @@ let main argv =
                     ".7..6..8.4.......6..57.82....24.61..7...1...5.9..3..6.86...7.54.........52.9.4.31";
                     ".4.8.....1..9..7....7.3.....6.....9...514...8.....942.3.16.2.......51..69.....2.1";
                     "9..7..4...32...8.......5..6...82.56..8..7..1...7.....464.218.......4.25.8........";
-                    "2.3..4......9..8.119.2...4.........6.4.87.2....7.2.3.4..2.5....9.6..8...7.8.1.43."|]
+                    "2.3..4......9..8.119.2...4.........6.4.87.2....7.2.3.4..2.5....9.6..8...7.8.1.43.";
+                    "...........714..69..98.32...........6.29.84.33.....8....8.7...45......2....5.13.."|]
 
     let sudokus = [|"C:\Users\Spock\Downloads\sudoku1.jpg";
                     "C:\Users\Spock\Downloads\sudoku2.jpg";
                     "C:\Users\Spock\Downloads\sudoku3.jpg";
                     "C:\Users\Spock\Downloads\sudoku4.jpg";
                     "C:\Users\Spock\Downloads\sudoku5.jpg"; 
-                    "C:\Users\Spock\Downloads\sudoku6.jpg";|]
+                    "C:\Users\Spock\Downloads\sudoku6.jpg";
+                    "C:\Users\Spock\Downloads\sudoku7.jpg";|]
     
     sudokus |> Array.iteri (fun i s -> 
                                 let grid  = sudokuFromImage s
@@ -27,7 +29,7 @@ let main argv =
                                     | Error e -> printfn "Test %i : %s" (i + 1) e)
     #endif
 
-    //let grid  = sudokuFromImage "C:\Users\Spock\Downloads\sudoku6.jpg"
+    //let grid  = sudokuFromImage "C:\Users\Spock\Downloads\sudoku3.jpg"
     //match grid with
     //    | Grid d -> printfn "%s" d
     //    | Error e -> printfn "%s" e

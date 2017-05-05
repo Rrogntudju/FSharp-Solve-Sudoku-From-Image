@@ -82,7 +82,7 @@ module SudokuFromImage =
                 let contoursA = contours.ToArrayOfArray()
                 let parents81Corners = hashMap [for p in parents81 -> 
                                                     let corners = new VectorOfPoint()
-                                                    CvInvoke.ApproxPolyDP(new VectorOfPoint(contoursA.[p]), corners, 5.0, true)
+                                                    CvInvoke.ApproxPolyDP(new VectorOfPoint(contoursA.[p]), corners, 10.0, true)
                                                     p, corners]  
 
                 let parents81Square = parents81 |> List.filter (fun p -> parents81Corners.[p].Size = 4)   // select the contours that are rectangles
@@ -152,7 +152,7 @@ module SudokuFromImage =
                                                                  |> List.map (fun rect -> 
                                                                                 // The area of the digit bounding rectangle should be «smaller» than the area of the square
                                                                                 let digitRatio = (float rect.Height * float rect.Width) / squareArea
-                                                                                if digitRatio > 0.70 || digitRatio < 0.1 then  
+                                                                                if digitRatio > 0.70 || digitRatio < 0.08 then  
                                                                                     None
                                                                                 else
                                                                                     // The center of the digit bounding rectangle should be «near» the center of the square
@@ -164,7 +164,7 @@ module SudokuFromImage =
                                                                                         let digit = new UMat(square, rect)
                                                                                         let whitePixels = new VectorOfPoint()
                                                                                         CvInvoke.FindNonZero(digit, whitePixels)
-                                                                                        if float whitePixels.Size / float (digit.Size.Height * digit.Size.Width) > 0.75 then
+                                                                                        if float whitePixels.Size / float (digit.Size.Height * digit.Size.Width) > 0.8 then
                                                                                             digit.Dispose()
                                                                                             None
                                                                                         else
