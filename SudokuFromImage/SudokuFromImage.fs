@@ -44,7 +44,16 @@ module SudokuFromImage =
     
     let sudokuFromImage (path : string)  : SudokuResult =
         try
-            let image = CvInvoke.Imread(path, ImreadModes.ReducedGrayscale4)
+            use imageFullSize = CvInvoke.Imread(path, ImreadModes.Grayscale)
+
+            let factor = Math.Sqrt(float (imageFullSize.Height * imageFullSize.Width) / 750000.0)
+            use image =
+                if factor < 1.5 then
+                    imageFullSize
+                else 
+                    let image = new Mat()
+                    CvInvoke.Resize(imageFullSize, image, new Size(0, 0), 1.0 / factor, 1.0 / factor, Inter.Area)
+                    image
 
             #if  DEBUG
             let temp = IO.Path.GetTempPath()
@@ -82,7 +91,7 @@ module SudokuFromImage =
                 let contoursA = contours.ToArrayOfArray()
                 let parents81Corners = hashMap [for p in parents81 -> 
                                                     let corners = new VectorOfPoint()
-                                                    CvInvoke.ApproxPolyDP(new VectorOfPoint(contoursA.[p]), corners, 10.0, true)
+                                                    CvInvoke.ApproxPolyDP(new VectorOfPoint(contoursA.[p]), corners, 10.0, true)  // magic! magic!
                                                     p, corners]  
 
                 let parents81Square = parents81 |> List.filter (fun p -> parents81Corners.[p].Size = 4)   // select the contours that are rectangles
