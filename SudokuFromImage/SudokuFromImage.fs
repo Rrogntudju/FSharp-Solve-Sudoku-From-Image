@@ -48,7 +48,7 @@ module SudokuFromImage =
 
             let factor = Math.Sqrt(float (imageFullSize.Height * imageFullSize.Width) / 750000.0)
             use image =
-                if factor < 1.5 then
+                if factor < 1.4 then
                     imageFullSize
                 else 
                     let image = new Mat()
@@ -67,24 +67,56 @@ module SudokuFromImage =
             CvInvoke.Imwrite(temp + "imCanny.jpg", imCanny) |> ignore
             #endif
             
-            use imDilate = new UMat()
-            CvInvoke.Dilate(imCanny, imDilate, null, Point(-1, -1), 1, BorderType.Default, MCvScalar(0.0, 0.0, 0.0))
+            //use imDilate = new UMat()
+            //CvInvoke.Dilate(imCanny, imDilate, null, Point(-1, -1), 1, BorderType.Default, MCvScalar(0.0, 0.0, 0.0))
 
-            #if  DEBUG
-            CvInvoke.Imwrite(temp + "imDilate.jpg", imDilate) |> ignore
-            #endif
+            //#if  DEBUG
+            //CvInvoke.Imwrite(temp + "imDilate.jpg", imDilate) |> ignore
+            //#endif
             
-            use contours = new VectorOfVectorOfPoint()
-            // Emgu wants a Mat instead of a VectorOfVectorOfInt for the hierarchy...
-            use hierarchy = new Mat()
-            CvInvoke.FindContours(imDilate.Clone(), contours, hierarchy, RetrType.Ccomp, ChainApproxMethod.ChainApproxSimple)
+            //use contours = new VectorOfVectorOfPoint()
+            //// Emgu wants a Mat instead of a VectorOfVectorOfInt for the hierarchy...
+            //use hierarchy = new Mat()
+            //CvInvoke.FindContours(imDilate.Clone(), contours, hierarchy, RetrType.Ccomp, ChainApproxMethod.ChainApproxSimple)
              
-            // Find the biggest square with 81 holes 
-            let hData = MatToArrayOfArrayOfInt hierarchy
-            let parents = getParents hData
-            let parentsChilds = getParentsWithChilds hData parents
-            let parents81 = [for parent in parents do if parentsChilds.[parent].Length >= 81 then yield parent]    // select contours with 81 holes or more
+            //// Find the biggest square with 81 holes 
+            //let hData = MatToArrayOfArrayOfInt hierarchy
+            //let parents = getParents hData
+            //let parentsChilds = getParentsWithChilds hData parents
+            //let parents81 = [for parent in parents do if parentsChilds.[parent].Length >= 81 then yield parent]    // select contours with 81 holes or more
   
+            let dilateAndFindContours (iter : int) : (VectorOfVectorOfPoint * int list) =
+                use imDilate = new UMat()
+                CvInvoke.Dilate(imCanny, imDilate, null, Point(-1, -1), iter, BorderType.Default, MCvScalar(0.0, 0.0, 0.0))
+
+                #if  DEBUG
+                CvInvoke.Imwrite(temp + "imDilate.jpg", imDilate) |> ignore
+                #endif
+            
+                let contours = new VectorOfVectorOfPoint()
+                // Emgu wants a Mat instead of a VectorOfVectorOfInt for the hierarchy...
+                use hierarchy = new Mat()
+                CvInvoke.FindContours(imDilate.Clone(), contours, hierarchy, RetrType.Ccomp, ChainApproxMethod.ChainApproxSimple)
+             
+                // Find the biggest square with 81 holes 
+                let hData = MatToArrayOfArrayOfInt hierarchy
+                let parents = getParents hData
+                let parentsChilds = getParentsWithChilds hData parents
+                let parents81 = [for parent in parents do if parentsChilds.[parent].Length >= 81 then yield parent]    // select contours with 81 holes or more
+                contours, parents81
+
+            let findGrid (iter : int list) : (VectorOfVectorOfPoint * int list) =
+                let rec findGridRec (result : VectorOfVectorOfPoint * int list) (iter : int list) : (VectorOfVectorOfPoint * int list) =
+                    match iter with
+                    | _ when (snd result).Length > 0 -> result
+                    | [] -> result
+                    | p::pl -> findGridRec (dilateAndFindContours p) pl 
+
+                iter |> findGridRec (new VectorOfVectorOfPoint(), [])
+
+            // Try to find the grid by increasing the value of dilate iteration parameter (to fuse the 2 edges of a large grid border)
+            let contours, parents81 = [1..4] |> findGrid 
+
             if parents81.Length = 0 then
                 Error "Pas de grille dans l'image"
             else
@@ -127,8 +159,8 @@ module SudokuFromImage =
                     #endif
                     
                     use imThresh = new UMat()
-                    CvInvoke.AdaptiveThreshold(imTrans, imThresh, 255.0, AdaptiveThresholdType.MeanC, ThresholdType.Binary, 11, 10.0)   // magic! magic!
-
+                    CvInvoke.AdaptiveThreshold(imTrans, imThresh, 255.0, AdaptiveThresholdType.GaussianC, ThresholdType.Binary, 19, 11.0)   // magic! magic!
+                    
                     #if  DEBUG
                     CvInvoke.Imwrite(temp + "imThresh.jpg", imThresh) |> ignore
                     #endif
@@ -150,7 +182,7 @@ module SudokuFromImage =
                     #endif
 
                     let digits = squares 
-                                 |> List.map (fun square ->
+                                    |> List.map (fun square ->
                                                 use contours = new VectorOfVectorOfPoint()
                                                 CvInvoke.FindContours(square.Clone(), contours, null, RetrType.List, ChainApproxMethod.ChainApproxSimple)
                                                 if contours.Size = 0 then
@@ -158,7 +190,7 @@ module SudokuFromImage =
                                                 else
                                                     let rects = [for contour in contours.ToArrayOfArray() ->  CvInvoke.BoundingRectangle(new VectorOfPoint(contour))]
                                                     let digits = rects 
-                                                                 |> List.map (fun rect -> 
+                                                                    |> List.map (fun rect -> 
                                                                                 // The area of the digit bounding rectangle should be «smaller» than the area of the square
                                                                                 let digitRatio = (float rect.Height * float rect.Width) / squareArea
                                                                                 if digitRatio > 0.70 || digitRatio < 0.08 then  
@@ -195,6 +227,7 @@ module SudokuFromImage =
                                                 | Some m -> CvInvoke.Imwrite(fn, m) |> ignore)                                                   
                     #endif
                    
+                    // Tesseract is finicky
                     use ocr = new Tesseract("", "eng", OcrEngineMode.TesseractOnly, "123456789")
                     let grid = [for digit in digits ->
                                     match digit with
