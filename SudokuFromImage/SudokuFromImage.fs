@@ -22,10 +22,10 @@ module SudokuFromImage =
         hierarchy |> Array.map (fun indices -> indices.[3]) |> Array.filter ((<>) -1) |> Array.toList
 
     let private getParentsWithChilds  (hierarchy : int [][]) (parents : int List) : HashMap<int, int []> =
-        let pXc = hierarchy |> Array.mapi (fun c indices -> 
-                                               let p = indices.[3]
-                                               if p <> -1 then p, c else -1, -1) 
-                            |> Array.filter ((<>) (-1, -1))
+        let pXc = [| for h in (hierarchy |> Array.indexed) do   let c, indices = h 
+                                                                let p = indices.[3]
+                                                                if p <> -1 then yield p, c |]
+        
         HashMap [for parent in parents -> parent, pXc |> Array.filter (fun pc -> match pc with | p, _ -> p = parent)
                                                       |> Array.map (fun pc -> match pc with | _, c -> c)]
 
@@ -66,25 +66,7 @@ module SudokuFromImage =
             #if  DEBUG
             CvInvoke.Imwrite(temp + "imCanny.jpg", imCanny) |> ignore
             #endif
-            
-            //use imDilate = new UMat()
-            //CvInvoke.Dilate(imCanny, imDilate, null, Point(-1, -1), 1, BorderType.Default, MCvScalar(0.0, 0.0, 0.0))
-
-            //#if  DEBUG
-            //CvInvoke.Imwrite(temp + "imDilate.jpg", imDilate) |> ignore
-            //#endif
-            
-            //use contours = new VectorOfVectorOfPoint()
-            //// Emgu wants a Mat instead of a VectorOfVectorOfInt for the hierarchy...
-            //use hierarchy = new Mat()
-            //CvInvoke.FindContours(imDilate.Clone(), contours, hierarchy, RetrType.Ccomp, ChainApproxMethod.ChainApproxSimple)
-             
-            //// Find the biggest square with 81 holes 
-            //let hData = MatToArrayOfArrayOfInt hierarchy
-            //let parents = getParents hData
-            //let parentsChilds = getParentsWithChilds hData parents
-            //let parents81 = [for parent in parents do if parentsChilds.[parent].Length >= 81 then yield parent]    // select contours with 81 holes or more
-  
+    
             let dilateAndFindContours (iter : int) : (VectorOfVectorOfPoint * int list) =
                 use imDilate = new UMat()
                 CvInvoke.Dilate(imCanny, imDilate, null, Point(-1, -1), iter, BorderType.Default, MCvScalar(0.0, 0.0, 0.0))
@@ -96,7 +78,7 @@ module SudokuFromImage =
                 let contours = new VectorOfVectorOfPoint()
                 // Emgu wants a Mat instead of a VectorOfVectorOfInt for the hierarchy...
                 use hierarchy = new Mat()
-                CvInvoke.FindContours(imDilate.Clone(), contours, hierarchy, RetrType.Ccomp, ChainApproxMethod.ChainApproxSimple)
+                CvInvoke.FindContours(imDilate, contours, hierarchy, RetrType.Ccomp, ChainApproxMethod.ChainApproxSimple)
              
                 // Find the biggest square with 81 holes 
                 let hData = MatToArrayOfArrayOfInt hierarchy
@@ -114,7 +96,7 @@ module SudokuFromImage =
 
                 iter |> findGridRec (new VectorOfVectorOfPoint(), [])
 
-            // Try to find the grid by increasing the value of dilate iteration parameter (to fuse the 2 edges of a large grid border)
+            // Try to find the grid by increasing the value of dilate iteration parameter (to fuse the 2 edges of a large grid line)
             let contours, parents81 = [1..4] |> findGrid 
 
             if parents81.Length = 0 then
