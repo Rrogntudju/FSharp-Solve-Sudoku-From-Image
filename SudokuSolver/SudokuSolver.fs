@@ -121,9 +121,12 @@ module SudokuSolver =
             | false ->  printfn "Le sudoku n'a pas été résolu!"
                         None
    
-    let solve (grid : string) : unit = 
+    let solve (grid : string) : bool = 
         grid |> grid_values >>= display |> ignore
-        grid |> parse_grid >>= search >>= solved >>= display |> ignore
+        let result = grid |> parse_grid >>= search >>= solved >>= display
+        match result with
+        | Some _ -> true
+        | None -> false
    
 
 

@@ -3,7 +3,6 @@ open SudokuSolver.SudokuSolver
 
 [<EntryPoint>]
 let main argv = 
-    printfn "%A" argv
 
     let results = [|"7....4...8..6.9...93...7.14.......7..25.....3...182..9..6....32348...7......6.54.";
                     ".8.1..7....3.5........47.2981..3.....5............126...4....17.....6...9..78....";
@@ -17,7 +16,10 @@ let main argv =
                     "....4.7.8.....7.5..7...2..18...2.6.9.5..813...1.4..8...6973.4..32.6..5...........";
                     "8..715..4..53.67..3.64.89.1.6..5..4....8.7....5..4..9.6.95.34.2..49.25..5..164..9";
                     ".53.....1.278........5..89.....7..1..391....57....82.....4.1...56.......2..9..5.8";
-                    "2.4.7..3589..14.7..578....418.3..5.2.2.....4.4.5..9.879....536..6.48..5957..9.4.1"|]
+                    "2.4.7..3589..14.7..578....418.3..5.2.2.....4.4.5..9.879....536..6.48..5957..9.4.1";
+                    "8...1...9.5.8.7.1...4.9.7...6.7.1.2.5.8.6.1.7.1.5.2.9...7.4.6...8.3.9.4.3...5...8";
+                    "......7.....1.6.5412..736.........936..5.8..798.........736..4554.8.9.....1......";
+                    "9..4.37..2.7..9.16..5.2....4.28...3.15..7..84.6...45.9....5.1..59.1..3.7..46.8..2"|]
 
     let sudokus = [|"C:\Users\Spock\Downloads\sudoku1.jpg";
                     "C:\Users\Spock\Downloads\sudoku2.jpg";
@@ -31,14 +33,22 @@ let main argv =
                     "C:\Users\Spock\Downloads\sudoku10.jpg";
                     "C:\Users\Spock\Downloads\sudoku11.jpg";
                     "C:\Users\Spock\Downloads\sudoku12.jpg";
-                    "C:\Users\Spock\Downloads\sudoku13.jpg"|]
+                    "C:\Users\Spock\Downloads\sudoku13.jpg";
+                    "C:\Users\Spock\Downloads\sudoku14.jpg";
+                    "C:\Users\Spock\Downloads\sudoku15.png";
+                    "C:\Users\Spock\Downloads\sudoku16.jpg"|]
     
-    sudokus |> Array.iteri (fun i s -> 
-                                let grid  = sudokuFromImage s
-                                match grid with
-                                    | Grid g when g = results.[i] -> printfn "Test %i : Grille OK" (i + 1)
-                                                                     solve g
-                                    | Grid g -> printfn "Test %i : Échec" (i + 1)
-                                    | Error e -> printfn "Test %i : %s" (i + 1) e)
+    let solved = sudokus |> Array.mapi (fun i s -> 
+                                            let grid  = sudokuFromImage s
+                                            match grid with
+                                            | Grid g when g = results.[i] -> printfn "Test %i : Grille OK" (i + 1)
+                                                                             solve g
+                                            | Grid _ -> printfn "Test %i : Échec" (i + 1)
+                                                        false
+                                            | Error e -> printfn "Test %i : %s" (i + 1) e
+                                                         false
+                                        )
 
-    0 // return an integer exit code
+    printfn "Tests réussis : %i/%i" (solved |> Array.sumBy (fun b -> if b then 1 else 0)) sudokus.Length
+    
+    0 
