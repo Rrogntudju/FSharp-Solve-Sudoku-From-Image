@@ -180,7 +180,7 @@ module SudokuFromImage =
                                                                                 else
                                                                                     // The center of the digit bounding rectangle should be «near» the center of the square
                                                                                     let rectCenter = new Point(rect.X + (rect.Width / 2), rect.Y + (rect.Height / 2))
-                                                                                    if (dist rectCenter squareCenter) / squareLen > 0.25 then
+                                                                                    if (dist rectCenter squareCenter) / squareLen > 0.30 then
                                                                                         None
                                                                                     else
                                                                                         // The digit image should not be «too empty» 
@@ -215,12 +215,14 @@ module SudokuFromImage =
                                     match digit with
                                     | None -> "."
                                     | Some m -> 
-                                        ocr.Recognize(m)
+                                        ocr.SetImage(m)
+                                        ocr.Recognize() |> ignore
                                         m.Dispose()
                                         match ocr.GetCharacters() with
                                         | ch when ch.Length = 0 -> "."
                                         | ch when ch.[0].Text = " " -> "."
-                                        | ch -> ch.[0].Text]
+                                        | ch -> ch.[0].Text
+                                ]
                     
                     if (digits |> List.filter (Option.isSome)).Length <> (grid |> List.filter ((<>) ".")).Length then
                         Error (sprintf "Tesseract n'a pas pu lire au moins un des nombres\n%s" (String.concat "" grid))

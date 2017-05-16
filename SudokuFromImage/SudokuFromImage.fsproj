@@ -57,7 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Emgu.CV.World">
-      <HintPath>C:\Emgu\emgucv-windesktop_x64-cuda 3.1.0.2504\bin\Emgu.CV.World.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\..\Emgu\emgucv-windesktop_x64-cuda 3.2.0.2682\bin\Emgu.CV.World.dll</HintPath>
     </Reference>
     <Reference Include="ExtCore">
       <HintPath>..\packages\ExtCore.0.8.46\lib\net45\ExtCore.dll</HintPath>
