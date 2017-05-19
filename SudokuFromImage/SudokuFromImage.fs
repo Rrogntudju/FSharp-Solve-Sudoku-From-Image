@@ -97,7 +97,7 @@ module SudokuFromImage =
                 iter |> findGridRec (new VectorOfVectorOfPoint(), [])
 
             // Try to find the grid by increasing the value of dilate iteration parameter (to fuse the 2 edges of a large grid line)
-            let contours, parents81 = [1..4] |> findGrid 
+            let contours, parents81 = [1..3] |> findGrid 
 
             if parents81.Length = 0 then
                 Error "Pas de grille dans l'image"

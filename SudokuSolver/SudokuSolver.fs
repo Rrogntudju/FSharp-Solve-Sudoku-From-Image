@@ -4,7 +4,6 @@ module SudokuSolver =
 
     // A translation of Peter Norvig’s Sudoku solver from Python to F#     http://www.norvig.com/sudoku.html
     open System.Collections.Generic
-    open SudokuSolver
 
     let inline private isIn (l : 'a list) (i : 'a) = List.exists ((=) i) l   // exists is ~10X faster than contains
     let center (s : string) (w : int) =
@@ -64,8 +63,12 @@ module SudokuSolver =
         Some (HashMap (List.zip squares chars))
 
     let rec private assign (s : string) (d : char) (values : HashMap<string, char list>) : Option<HashMap<string, char list>> =
-
-        let rec eliminate (s : string) (d : char) (values : HashMap<string, char list>) : Option<HashMap<string, char list>> =
+     (*  Assign a value d by eliminating all the other values (except d) from values[s] and propagate.  
+        Return Some values, except return None if a contradiction is detected. *)   
+        let other_values = values.[s] |> List.filter ((<>) d)
+        [for d' in other_values -> eliminate s d'] |> allSome (Some values)
+  
+    and eliminate (s : string) (d : char) (values : HashMap<string, char list>) : Option<HashMap<string, char list>> =
   
             let rule1  (values : HashMap<string, char list>) : Option<HashMap<string, char list>> =
             //  (1) If a square s is reduced to one value d', then eliminate d' from the peers.
@@ -92,11 +95,6 @@ module SudokuSolver =
                 let values' = values |> HashMap.add s (values.[s] |> List.filter ((<>) d))
                 values' |> rule1 >>= rule2
 
-    (*  Assign a value d by eliminating all the other values (except d) from values[s] and propagate.  
-        Return Some values, except return None if a contradiction is detected. *)   
-        let other_values = values.[s] |> List.filter ((<>) d)
-        [for d' in other_values -> eliminate s d'] |> allSome (Some values)
-
     let private parse_grid (grid : string) : Option<HashMap<string, char list>> =
     //  Convert grid to Some dict of possible values, [square, digits], or return None if a contradiction is detected. 
         let assignGrid (gvalues : HashMap<string, char list>)  =
@@ -118,7 +116,7 @@ module SudokuSolver =
         let isUnitSolved u = Set (seq {for s in u -> values.[s]}) = Set (seq {for d in digits -> [d]})
         match seq {for u in unitlist -> isUnitSolved u} |> Seq.forall (id) with
             | true -> Some values
-            | false ->  printfn "Le sudoku n'a pas été résolu!"
+            | false ->  printfn "Le sudoku n'a pas été résolu!\n"
                         None
    
     let solve (grid : string) : bool = 
