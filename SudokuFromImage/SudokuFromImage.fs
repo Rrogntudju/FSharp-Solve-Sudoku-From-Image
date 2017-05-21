@@ -84,7 +84,7 @@ module SudokuFromImage =
                 let hData = MatToArrayOfArrayOfInt hierarchy
                 let parents = getParents hData
                 let parentsChilds = getParentsWithChilds hData parents
-                let parents81 = [for parent in parents do if parentsChilds.[parent].Length >= 81 then yield parent]    // select contours with 81 holes or more
+                let parents81 = [for parent in parents do if parentsChilds.[parent].Length > 81 then yield parent]    // select contours with 81 holes or more
                 contours, parents81
 
             let findGrid (iter : int list) : (VectorOfVectorOfPoint * int list) =
@@ -97,7 +97,7 @@ module SudokuFromImage =
                 iter |> findGridRec (new VectorOfVectorOfPoint(), [])
 
             // Try to find the grid by increasing the value of dilate iteration parameter (to fuse the 2 edges of a large grid line)
-            let contours, parents81 = [1..3] |> findGrid 
+            let contours, parents81 = [1..4] |> findGrid 
 
             if parents81.Length = 0 then
                 Error "Pas de grille dans l'image"
