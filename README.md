@@ -6,6 +6,7 @@ A console application in F# to solve a sudoku puzzle from the 9x9 grid image. Us
 2.	Download the english trained data file for Tesseract OCR 4 : https://github.com/tesseract-ocr/tessdata/blob/master/eng.traineddata
 
 # Build and Test
+Visual Studio 2017 solution
 1. The project SudokuFromImage needs a reference to Emgu.CV.World.dll (to be found in the Emgu installation directory). 
 2. The project SudokuSolver needs a reference to ExtCore (a NuGet package).
 3. The project SolveSudoku builds the console application ssud.exe.
